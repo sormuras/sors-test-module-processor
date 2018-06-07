@@ -1,17 +1,10 @@
 plugins {
     id 'java'
-    id 'maven-publish'
+    id 'maven'
 }
 
-group 'com.github.sormuras.sandbox'
+group 'de.sormuras'
 version '1.0-SNAPSHOT'
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-}
 
 test {
     useJUnitPlatform()
