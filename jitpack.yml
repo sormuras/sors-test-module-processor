@@ -3,4 +3,4 @@ before_install:
 - source install-jdk.sh --feature ea
 
 install:
-- ./gradlew --no-daemon publishToLocalMaven
+- ./gradlew --no-daemon publishToMavenLocal

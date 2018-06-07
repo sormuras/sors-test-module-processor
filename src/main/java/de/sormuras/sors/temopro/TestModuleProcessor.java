@@ -17,7 +17,7 @@ import java.util.Set;
 
 public class TestModuleProcessor extends AbstractProcessor {
 
-  private static final String OPTION_VERBOSE = "de.sormuras.sandbox.temopro.verbose";
+  private static final String OPTION_VERBOSE = "de.sormuras.sors.temopro.verbose";
 
   private int roundCounter = 0;
   private boolean verbose = Boolean.getBoolean(OPTION_VERBOSE);
