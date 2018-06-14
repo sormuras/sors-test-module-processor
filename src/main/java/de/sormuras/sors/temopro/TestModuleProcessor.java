@@ -11,12 +11,18 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class TestModuleProcessor extends AbstractProcessor {
 
@@ -86,7 +92,7 @@ public class TestModuleProcessor extends AbstractProcessor {
     note("Package %s is annotated with: %s", packageName, testModule);
 
     // from annotation usage
-    var text = String.join(System.lineSeparator(), testModule.value());
+    var testLines = List.of(testModule.value());
 
     // from template source file
     try {
@@ -95,7 +101,7 @@ public class TestModuleProcessor extends AbstractProcessor {
               testModule.sourceLocation(),
               testModule.sourceModuleAndPackageName(),
               testModule.sourceRelativeName());
-      text = test.getCharContent(true).toString();
+      testLines = List.of(test.getCharContent(true).toString().split("\\R"));
       note("Using content read by Filer: `%s`", testModule.sourceRelativeName());
     } catch (IOException e) {
       // ignore
@@ -104,8 +110,9 @@ public class TestModuleProcessor extends AbstractProcessor {
     // from class loader
     try (var is = getClass().getResourceAsStream(testModule.sourceRelativeName())) {
       if (is != null) {
-        var scanner = new Scanner(is);
-        text = scanner.useDelimiter("\\A").next();
+        try (var reader = new BufferedReader(new InputStreamReader(is))) {
+          testLines = reader.lines().collect(Collectors.toList());
+        }
         note("Using content read by ClassLoader: `%s`", testModule.sourceRelativeName());
       }
     } catch (IOException e) {
@@ -114,19 +121,44 @@ public class TestModuleProcessor extends AbstractProcessor {
 
     // from file system
     try {
-      var lines = Files.readAllLines(Paths.get(testModule.sourceRelativeName()));
-      text = String.join(System.lineSeparator(), lines);
+      testLines = Files.readAllLines(Paths.get(testModule.sourceRelativeName()));
       note("Using content read from file system path: `%s`", testModule.sourceRelativeName());
     } catch (IOException e) {
       // ignore
     }
 
-    if (text.isEmpty()) {
-      error(packageElement, "Text is empty?!");
-      return;
+    if (testModule.merge()) {
+      note("Merging main and test module descriptors...");
+      try {
+        var path = Paths.get(testModule.mainModuleDescriptorPath());
+        var mainLines = Files.readAllLines(path);
+        note("Read main module descriptor (%d lines): `%s`", mainLines.size(), path);
+        var mergedLines = new ArrayList<String>();
+        for (var line : mainLines) {
+          if (line.contains("}")) {
+            mergedLines.add("// BEGIN");
+            mergedLines.addAll(testLines);
+            mergedLines.add("// END.");
+          }
+          mergedLines.add(line.replace("module ", "open module "));
+        }
+        testLines = List.copyOf(mergedLines);
+      } catch (IOException e) {
+        error(
+            packageElement,
+            "Reading main module descriptor failed: %s",
+            testModule.mainModuleDescriptorPath());
+        return;
+      }
+    } else {
+      if (testLines.isEmpty()) {
+        error(packageElement, "Text is empty?!");
+        return;
+      }
     }
 
     try {
+      var text = String.join(System.lineSeparator(), testLines) + System.lineSeparator();
       note("Printing to `%s`: %s", testModule.targetRelativeName(), text);
       var file =
           filer.createResource(

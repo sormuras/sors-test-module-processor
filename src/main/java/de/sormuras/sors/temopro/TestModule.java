@@ -12,6 +12,10 @@ public @interface TestModule {
 
   String[] value() default {};
 
+  boolean merge() default true;
+
+  String mainModuleDescriptorPath() default "src/main/java/module-info.java";
+
   StandardLocation sourceLocation() default StandardLocation.CLASS_OUTPUT;
 
   String sourceModuleAndPackageName() default "";
