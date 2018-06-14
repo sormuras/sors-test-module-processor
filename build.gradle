@@ -3,7 +3,7 @@ plugins {
     id 'maven'
 }
 
-group 'de.sormuras'
+group 'de.sormuras.sors'
 version '1.0-SNAPSHOT'
 
 test {

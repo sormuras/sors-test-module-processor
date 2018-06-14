@@ -1,4 +1,6 @@
-package de.sormuras.sors.temopro;
+package de.sormuras.sors.testmodule.processor;
+
+import de.sormuras.sors.testmodule.TestModule;
 
 import static java.lang.String.format;
 import static javax.tools.Diagnostic.Kind.ERROR;
@@ -11,18 +13,14 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
-import java.io.BufferedReader;
+import javax.tools.StandardLocation;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Scanner;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class TestModuleProcessor extends AbstractProcessor {
 
@@ -91,85 +89,46 @@ public class TestModuleProcessor extends AbstractProcessor {
     var packageName = packageElement.getQualifiedName().toString();
     note("Package %s is annotated with: %s", packageName, testModule);
 
-    // from annotation usage
     var testLines = List.of(testModule.value());
-
-    // from template source file
-    try {
-      var test =
-          filer.getResource(
-              testModule.sourceLocation(),
-              testModule.sourceModuleAndPackageName(),
-              testModule.sourceRelativeName());
-      testLines = List.of(test.getCharContent(true).toString().split("\\R"));
-      note("Using content read by Filer: `%s`", testModule.sourceRelativeName());
-    } catch (IOException e) {
-      // ignore
-    }
-
-    // from class loader
-    try (var is = getClass().getResourceAsStream(testModule.sourceRelativeName())) {
-      if (is != null) {
-        try (var reader = new BufferedReader(new InputStreamReader(is))) {
-          testLines = reader.lines().collect(Collectors.toList());
-        }
-        note("Using content read by ClassLoader: `%s`", testModule.sourceRelativeName());
-      }
-    } catch (IOException e) {
-      // ignore
-    }
-
-    // from file system
-    try {
-      testLines = Files.readAllLines(Paths.get(testModule.sourceRelativeName()));
-      note("Using content read from file system path: `%s`", testModule.sourceRelativeName());
-    } catch (IOException e) {
-      // ignore
+    if (testLines.isEmpty()) {
+      error(packageElement, "No test module descriptor line?!");
+      return;
     }
 
     if (testModule.merge()) {
       note("Merging main and test module descriptors...");
+      var path = Paths.get(testModule.mainModuleDescriptorPath(), "module-info.java");
       try {
-        var path = Paths.get(testModule.mainModuleDescriptorPath());
         var mainLines = Files.readAllLines(path);
         note("Read main module descriptor (%d lines): `%s`", mainLines.size(), path);
-        var mergedLines = new ArrayList<String>();
-        for (var line : mainLines) {
-          if (line.contains("}")) {
-            mergedLines.add("// BEGIN");
-            mergedLines.addAll(testLines);
-            mergedLines.add("// END.");
-          }
-          mergedLines.add(line.replace("module ", "open module "));
-        }
-        testLines = List.copyOf(mergedLines);
+        testLines = merge(mainLines, testLines);
       } catch (IOException e) {
-        error(
-            packageElement,
-            "Reading main module descriptor failed: %s",
-            testModule.mainModuleDescriptorPath());
-        return;
-      }
-    } else {
-      if (testLines.isEmpty()) {
-        error(packageElement, "Text is empty?!");
+        error(packageElement, "Reading main module descriptor from `%s`: %s", path, e);
         return;
       }
     }
 
     try {
-      var text = String.join(System.lineSeparator(), testLines) + System.lineSeparator();
-      note("Printing to `%s`: %s", testModule.targetRelativeName(), text);
-      var file =
-          filer.createResource(
-              testModule.targetLocation(),
-              testModule.targetModuleAndPackageName(),
-              testModule.targetRelativeName());
+      note("Printing...%n %s", testLines);
+      var file = filer.createResource(StandardLocation.SOURCE_OUTPUT, "", "module-info.java");
       try (PrintStream stream = new PrintStream(file.openOutputStream(), false, "UTF-8")) {
-        stream.print(text);
+        testLines.forEach(stream::println);
       }
     } catch (Exception e) {
       error(packageElement, e.toString());
     }
+  }
+
+  private List<String> merge(List<String> mainLines, List<String> testLines) {
+    var mergedLines = new ArrayList<String>();
+    for (var line : mainLines) {
+      if (line.contains("}")) {
+        mergedLines.add("  // BEGIN");
+        mergedLines.addAll(testLines);
+        mergedLines.add("  // END.");
+      }
+      mergedLines.add(line.replace("module ", "open module "));
+    }
+    return List.copyOf(mergedLines);
   }
 }

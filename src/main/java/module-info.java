@@ -1,8 +1,8 @@
-module de.sormuras.sors.temopro {
+module de.sormuras.sors.testmodule {
   requires java.compiler;
 
-  exports de.sormuras.sors.temopro;
+  exports de.sormuras.sors.testmodule;
 
   provides javax.annotation.processing.Processor with
-      de.sormuras.sors.temopro.TestModuleProcessor;
+      de.sormuras.sors.testmodule.processor.TestModuleProcessor;
 }
