@@ -13,6 +13,9 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Scanner;
 import java.util.Set;
 
 public class TestModuleProcessor extends AbstractProcessor {
@@ -85,15 +88,35 @@ public class TestModuleProcessor extends AbstractProcessor {
     // from annotation usage
     var text = String.join(System.lineSeparator(), testModule.value());
 
+    // from template source file
     try {
-      // from template source file
       var test =
           filer.getResource(
               testModule.sourceLocation(),
               testModule.sourceModuleAndPackageName(),
               testModule.sourceRelativeName());
       text = test.getCharContent(true).toString();
-      note("Using content of `%s`", testModule.sourceRelativeName());
+      note("Using content read by Filer: `%s`", testModule.sourceRelativeName());
+    } catch (IOException e) {
+      // ignore
+    }
+
+    // from class loader
+    try (var is = getClass().getResourceAsStream(testModule.sourceRelativeName())) {
+      if (is != null) {
+        var scanner = new Scanner(is);
+        text = scanner.useDelimiter("\\A").next();
+        note("Using content read by ClassLoader: `%s`", testModule.sourceRelativeName());
+      }
+    } catch (IOException e) {
+      // ignore
+    }
+
+    // from file system
+    try {
+      var lines = Files.readAllLines(Paths.get(testModule.sourceRelativeName()));
+      text = String.join(System.lineSeparator(), lines);
+      note("Using content read from file system path: `%s`", testModule.sourceRelativeName());
     } catch (IOException e) {
       // ignore
     }
