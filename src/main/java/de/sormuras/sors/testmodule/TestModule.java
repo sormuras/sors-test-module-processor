@@ -5,9 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Annotation to declare a test module descriptor on-the-fly.
- */
+/** Annotation to declare a test module descriptor on-the-fly. */
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.PACKAGE)
 public @interface TestModule {
@@ -20,4 +18,7 @@ public @interface TestModule {
 
   /** @return lines of the test module descriptor */
   String[] value() default {};
+
+  /** @return {@code true} to compile the generated test module descriptor on-the-fly */
+  boolean compile() default true;
 }

@@ -117,6 +117,21 @@ public class TestModuleProcessor extends AbstractProcessor {
     } catch (Exception e) {
       error(packageElement, e.toString());
     }
+
+    if (testModule.compile()) {
+      try {
+        note("Compiling...%n %s", testLines);
+        var source = Compilation.source("module-info.java", String.join("\n", testLines));
+        var manager = Compilation.compile(null, List.of(), List.of(), List.of(source));
+        var bytes = manager.getBytes("module-info.java");
+        var file = filer.createClassFile("module-info.class");
+        try (var stream = file.openOutputStream()) {
+          stream.write(bytes);
+        }
+      } catch (Exception e) {
+        error(packageElement, e.toString());
+      }
+    }
   }
 
   private List<String> merge(List<String> mainLines, List<String> testLines) {
