@@ -122,7 +122,8 @@ public class TestModuleProcessor extends AbstractProcessor {
       try {
         note("Compiling...%n %s", testLines);
         var source = Compilation.source("module-info.java", String.join("\n", testLines));
-        var manager = Compilation.compile(null, List.of(), List.of(), List.of(source));
+        var options = List.of(testModule.compilerOptions());
+        var manager = Compilation.compile(null, options, List.of(), List.of(source));
         var bytes = manager.getBytes("module-info.java");
         var file = filer.createClassFile("module-info.class");
         try (var stream = file.openOutputStream()) {

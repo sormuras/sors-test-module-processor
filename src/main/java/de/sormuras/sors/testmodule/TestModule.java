@@ -21,4 +21,7 @@ public @interface TestModule {
 
   /** @return {@code true} to compile the generated test module descriptor on-the-fly */
   boolean compile() default true;
+
+    /** @return options passed to the on-the-fly compiler instance */
+  String[] compilerOptions() default {};
 }
