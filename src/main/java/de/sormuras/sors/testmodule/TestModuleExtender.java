@@ -3,27 +3,25 @@ package de.sormuras.sors.testmodule;
 import java.lang.module.ModuleDescriptor;
 import java.lang.module.ModuleDescriptor.Builder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.function.Consumer;
 
-public class TestModuleExtender implements Consumer<Builder> {
-
-  @Override
-  public void accept(Builder builder) {
-      // builder.requires("org.junit.jupiter.api");
-  }
+public class TestModuleExtender  {
 
   public Builder builder(ModuleDescriptor mainDescriptor) {
     return ModuleDescriptor.newOpenModule(mainDescriptor.name());
   }
 
-  public Builder copyMainModuleDirectives(ModuleDescriptor mainDescriptor, Builder builder) {
+  public void copyMainModuleDirectives(ModuleDescriptor mainDescriptor, Builder builder) {
     mainDescriptor.requires().forEach(builder::requires);
     mainDescriptor.exports().forEach(builder::exports);
     mainDescriptor.opens().forEach(builder::opens);
     mainDescriptor.uses().forEach(builder::uses);
     mainDescriptor.provides().forEach(builder::provides);
-    return builder;
+  }
+
+  public void extend(TestModule testModule, Builder builder) {
+    Arrays.stream(testModule.testRequires()).forEach(builder::requires);
   }
 
   public List<String> mergeSourceLines(List<String> mainLines, List<String> testLines) {

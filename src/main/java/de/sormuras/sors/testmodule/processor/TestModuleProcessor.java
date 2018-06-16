@@ -1,6 +1,7 @@
 package de.sormuras.sors.testmodule.processor;
 
 import de.sormuras.sors.testmodule.TestModule;
+import de.sormuras.sors.testmodule.TestModuleExtender;
 
 import static java.lang.String.format;
 import static javax.tools.Diagnostic.Kind.ERROR;
@@ -19,7 +20,6 @@ import java.io.PrintStream;
 import java.lang.module.ModuleDescriptor;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -88,13 +88,12 @@ public class TestModuleProcessor extends AbstractProcessor {
     }
   }
 
-  private void processElementAnnotatedWithTestModule(PackageElement packageElement)
-      throws Exception {
+  private void processElementAnnotatedWithTestModule(PackageElement packageElement) {
     var filer = processingEnv.getFiler();
     var testModule = packageElement.getAnnotation(TestModule.class);
     var packageName = packageElement.getQualifiedName().toString();
     note("Package %s is annotated with: %s", packageName, testModule);
-    var extender = testModule.extender().getConstructor().newInstance();
+    var extender = new TestModuleExtender();
 
     var testLines = List.of(testModule.value());
     if (testLines.isEmpty()) {
@@ -106,15 +105,15 @@ public class TestModuleProcessor extends AbstractProcessor {
       try {
         note("Compiling...%n %s", testLines);
         var path = Paths.get(testModule.mainModuleDescriptorBinary(), "module-info.class");
-        var testModuleBinary = filer.createClassFile("module-info.class");
-        try (var mainModuleStream = Files.newInputStream(path);
-            var testModuleStream = testModuleBinary.openOutputStream()) {
-          var mainDescriptor = ModuleDescriptor.read(mainModuleStream);
+        var moduleClass = filer.createClassFile("module-info.class");
+        try (var mainStream = Files.newInputStream(path);
+            var testStream = moduleClass.openOutputStream()) {
+          var mainDescriptor = ModuleDescriptor.read(mainStream);
           var builder = extender.builder(mainDescriptor);
           extender.copyMainModuleDirectives(mainDescriptor, builder);
-          extender.accept(builder);
+          extender.extend(testModule, builder);
           var bytes = new ModuleDescriptorCompiler().moduleDescriptorToBinary(builder.build());
-          testModuleStream.write(bytes);
+          testStream.write(bytes);
         }
       } catch (Exception e) {
         error(packageElement, e.toString());

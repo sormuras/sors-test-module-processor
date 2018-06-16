@@ -25,6 +25,6 @@ public @interface TestModule {
   /** @return {@code true} to compile the generated test module descriptor on-the-fly */
   boolean compile() default true;
 
-    /** @return class that adds test dependencies */
-  Class<TestModuleExtender> extender() default TestModuleExtender.class;
+    /** @return simple test {@code requires} directives */
+  String[] testRequires() default {};
 }
