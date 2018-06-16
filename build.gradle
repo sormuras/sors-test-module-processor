@@ -19,11 +19,8 @@ dependencies {
 }
 
 compileJava {
-    // inputs.property("moduleName", moduleName)
     doFirst {
-        options.compilerArgs = [
-                '--module-path', classpath.asPath,
-        ]
+        options.compilerArgs = ['--module-path', classpath.asPath]
         classpath = files()
     }
 }
@@ -46,7 +43,7 @@ jar {
 shadowJar {
     classifier = null
     exclude 'META-INF/**'
-    exclude 'module-info.class'
+    // exclude 'module-info.class'
     relocate 'org.objectweb.asm', 'de.sormuras.sors.testmodule.shadow.asm'
 }
 
