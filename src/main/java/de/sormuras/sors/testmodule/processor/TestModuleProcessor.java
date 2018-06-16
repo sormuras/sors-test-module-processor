@@ -6,6 +6,7 @@ import de.sormuras.sors.testmodule.TestModuleExtender;
 import static java.lang.String.format;
 import static javax.tools.Diagnostic.Kind.ERROR;
 import static javax.tools.Diagnostic.Kind.NOTE;
+import static javax.tools.StandardLocation.CLASS_OUTPUT;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
@@ -99,7 +100,8 @@ public class TestModuleProcessor extends AbstractProcessor {
       try {
         note("Compiling...");
         var path = Paths.get(testModule.mainModuleDescriptorBinary(), "module-info.class");
-        var moduleClass = filer.createClassFile("module-info.class");
+        // var moduleClass = filer.createClassFile("module-info.class"); // illegal name...
+        var moduleClass = filer.createResource(CLASS_OUTPUT, "", "module-info.class");
         try (var mainStream = Files.newInputStream(path);
             var testStream = moduleClass.openOutputStream()) {
           var mainDescriptor = ModuleDescriptor.read(mainStream);
