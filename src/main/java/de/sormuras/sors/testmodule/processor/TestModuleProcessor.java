@@ -16,6 +16,7 @@ import javax.lang.model.element.TypeElement;
 import javax.tools.StandardLocation;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.module.ModuleDescriptor;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -79,15 +80,21 @@ public class TestModuleProcessor extends AbstractProcessor {
             testModuleAnnotated);
       }
       note("Processing in enclosing: %s", testModuleAnnotated.getEnclosingElement());
-      processElementAnnotatedWithTestModule((PackageElement) testModuleAnnotated);
+      try {
+        processElementAnnotatedWithTestModule((PackageElement) testModuleAnnotated);
+      } catch (Exception e) {
+        error(testModuleAnnotated, "Processing failed: %s", e);
+      }
     }
   }
 
-  private void processElementAnnotatedWithTestModule(PackageElement packageElement) {
+  private void processElementAnnotatedWithTestModule(PackageElement packageElement)
+      throws Exception {
     var filer = processingEnv.getFiler();
     var testModule = packageElement.getAnnotation(TestModule.class);
     var packageName = packageElement.getQualifiedName().toString();
     note("Package %s is annotated with: %s", packageName, testModule);
+    var extender = testModule.extender().getConstructor().newInstance();
 
     var testLines = List.of(testModule.value());
     if (testLines.isEmpty()) {
@@ -95,56 +102,45 @@ public class TestModuleProcessor extends AbstractProcessor {
       return;
     }
 
-    if (testModule.merge()) {
-      note("Merging main and test module descriptors...");
-      var path = Paths.get(testModule.mainModuleDescriptorPath(), "module-info.java");
-      try {
-        var mainLines = Files.readAllLines(path);
-        note("Read main module descriptor (%d lines): `%s`", mainLines.size(), path);
-        testLines = merge(mainLines, testLines);
-      } catch (IOException e) {
-        error(packageElement, "Reading main module descriptor from `%s`: %s", path, e);
-        return;
-      }
-    }
-
-    try {
-      note("Printing...%n %s", testLines);
-      var file = filer.createResource(StandardLocation.SOURCE_OUTPUT, "", "module-info.java");
-      try (PrintStream stream = new PrintStream(file.openOutputStream(), false, "UTF-8")) {
-        testLines.forEach(stream::println);
-      }
-    } catch (Exception e) {
-      error(packageElement, e.toString());
-    }
-
     if (testModule.compile()) {
       try {
         note("Compiling...%n %s", testLines);
-        var source = Compilation.source("module-info.java", String.join("\n", testLines));
-        var options = List.of(testModule.compilerOptions());
-        var manager = Compilation.compile(null, options, List.of(), List.of(source));
-        var bytes = manager.getBytes("module-info.java");
-        var file = filer.createClassFile("module-info.class");
-        try (var stream = file.openOutputStream()) {
-          stream.write(bytes);
+        var path = Paths.get(testModule.mainModuleDescriptorBinary(), "module-info.class");
+        var testModuleBinary = filer.createClassFile("module-info.class");
+        try (var mainModuleStream = Files.newInputStream(path);
+            var testModuleStream = testModuleBinary.openOutputStream()) {
+          var mainDescriptor = ModuleDescriptor.read(mainModuleStream);
+          var builder = extender.builder(mainDescriptor);
+          extender.copyMainModuleDirectives(mainDescriptor, builder);
+          extender.accept(builder);
+          var bytes = new ModuleDescriptorCompiler().moduleDescriptorToBinary(builder.build());
+          testModuleStream.write(bytes);
+        }
+      } catch (Exception e) {
+        error(packageElement, e.toString());
+      }
+    } else {
+      if (testModule.merge()) {
+        note("Merging main and test module descriptors...");
+        var path = Paths.get(testModule.mainModuleDescriptorSource(), "module-info.java");
+        try {
+          var mainLines = Files.readAllLines(path);
+          note("Read main module descriptor (%d lines): `%s`", mainLines.size(), path);
+          testLines = extender.mergeSourceLines(mainLines, testLines);
+        } catch (IOException e) {
+          error(packageElement, "Reading main module descriptor from `%s`: %s", path, e);
+          return;
+        }
+      }
+      try {
+        note("Printing...%n %s", testLines);
+        var file = filer.createResource(StandardLocation.SOURCE_OUTPUT, "", "module-info.java");
+        try (PrintStream stream = new PrintStream(file.openOutputStream(), false, "UTF-8")) {
+          testLines.forEach(stream::println);
         }
       } catch (Exception e) {
         error(packageElement, e.toString());
       }
     }
-  }
-
-  private List<String> merge(List<String> mainLines, List<String> testLines) {
-    var mergedLines = new ArrayList<String>();
-    for (var line : mainLines) {
-      if (line.contains("}")) {
-        mergedLines.add("  // BEGIN");
-        mergedLines.addAll(testLines);
-        mergedLines.add("  // END.");
-      }
-      mergedLines.add(line.replace("module ", "open module "));
-    }
-    return List.copyOf(mergedLines);
   }
 }

@@ -11,7 +11,10 @@ import java.lang.annotation.Target;
 public @interface TestModule {
 
   /** @return the directory where the main {@code module-info.java} file is located */
-  String mainModuleDescriptorPath() default "src/main/java";
+  String mainModuleDescriptorSource() default "src/main/java";
+
+  /** @return the directory where the main {@code module-info.class} file is located */
+  String mainModuleDescriptorBinary() default "target/classes";
 
   /** @return {@code true} to merge with lines from main module descriptor */
   boolean merge() default true;
@@ -22,6 +25,6 @@ public @interface TestModule {
   /** @return {@code true} to compile the generated test module descriptor on-the-fly */
   boolean compile() default true;
 
-    /** @return options passed to the on-the-fly compiler instance */
-  String[] compilerOptions() default {};
+    /** @return class that adds test dependencies */
+  Class<TestModuleExtender> extender() default TestModuleExtender.class;
 }
