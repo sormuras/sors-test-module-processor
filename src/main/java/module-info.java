@@ -1,6 +1,6 @@
 module de.sormuras.sors.testmodule {
   requires java.compiler;
-  requires org.objectweb.asm;
+  requires static org.objectweb.asm;
 
   exports de.sormuras.sors.testmodule;
 

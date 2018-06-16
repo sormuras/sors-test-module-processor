@@ -1,5 +1,4 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '2.0.4'
     id 'java'
     id 'maven'
 }
@@ -27,24 +26,6 @@ compileJava {
 
 test {
     useJUnitPlatform()
-}
-
-jar.enabled = false
-jar.dependsOn shadowJar
-
-jar {
-    manifest {
-        attributes(
-                'Automatic-Module-Name': 'de.sormuras.sors.testmodule'
-        )
-    }
-}
-
-shadowJar {
-    classifier = null
-    exclude 'META-INF/**'
-    // exclude 'module-info.class'
-    relocate 'org.objectweb.asm', 'de.sormuras.sors.testmodule.shadow.asm'
 }
 
 wrapper {
