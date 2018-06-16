@@ -95,15 +95,9 @@ public class TestModuleProcessor extends AbstractProcessor {
     note("Package %s is annotated with: %s", packageName, testModule);
     var extender = new TestModuleExtender();
 
-    var testLines = List.of(testModule.value());
-    if (testLines.isEmpty()) {
-      error(packageElement, "No test module descriptor line?!");
-      return;
-    }
-
     if (testModule.compile()) {
       try {
-        note("Compiling...%n %s", testLines);
+        note("Compiling...");
         var path = Paths.get(testModule.mainModuleDescriptorBinary(), "module-info.class");
         var moduleClass = filer.createClassFile("module-info.class");
         try (var mainStream = Files.newInputStream(path);
@@ -119,6 +113,11 @@ public class TestModuleProcessor extends AbstractProcessor {
         error(packageElement, e.toString());
       }
     } else {
+      var testLines = List.of(testModule.value());
+      if (testLines.isEmpty()) {
+        error(packageElement, "No test module descriptor line?!");
+        return;
+      }
       if (testModule.merge()) {
         note("Merging main and test module descriptors...");
         var path = Paths.get(testModule.mainModuleDescriptorSource(), "module-info.java");
